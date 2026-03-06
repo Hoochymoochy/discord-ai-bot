@@ -1,5 +1,4 @@
 const { Client, GatewayIntentBits } = require("discord.js");
-const fetch = require("node-fetch");
 require("dotenv").config();
 
 const client = new Client({
