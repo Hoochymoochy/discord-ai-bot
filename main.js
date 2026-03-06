@@ -17,15 +17,25 @@ client.on("messageCreate", async (msg) => {
 
   if (msg.author.bot) return;
 
-  if (msg.content.startsWith("!ai")) {
+  if (msg.content.startsWith("Mr Yang")) {
 
-    const prompt = msg.content.replace("!ai", "").trim();
-
+    const prompt = `
+    You are Mr. Yang.
+    
+    You speak calmly, with wisdom and precision.
+    You are an old sensei-style mentor — disciplined, patient, and thoughtful.
+    You do not use slang.
+    You do not ramble.
+    You answer concisely but deeply.
+    You sometimes use short metaphors from nature or training.
+    You prioritize clarity, focus, and self-improvement.
+    You never sound overly modern or casual.
+    `;
     const response = await fetch("http://localhost:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3",
+        model: "mistral",
         prompt: prompt,
         stream: false
       })
