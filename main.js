@@ -10,6 +10,7 @@ const client = new Client({
 });
 
 const GITHUB_TOOL_URL = process.env.GITHUB_TOOL_URL || "http://localhost:3001";
+const ARCHITECT_URL = process.env.ARCHITECT_URL || "http://localhost:3002";
 
 client.on("ready", () => {
   console.log("AI bot ready");
@@ -24,7 +25,7 @@ client.on("messageCreate", async (msg) => {
     await handleMrYang(msg);
   }
 
-  // Process GitHub file upload
+  // Process GitHub file upload (with auto-trigger Architect Agent)
   if (msg.content.startsWith("!github") && msg.attachments.size > 0) {
     await handleGitHubFile(msg);
   }
@@ -90,7 +91,9 @@ async function handleGitHubFile(msg) {
       return msg.reply("Invalid format. Expected { project: string, items: array }");
     }
 
-    // Send to your backend
+    // Step 1: Send to GitHub Tool
+    await msg.reply("📂 Setting up GitHub structure...");
+    
     const githubResponse = await fetch(`${GITHUB_TOOL_URL}/process-github`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -99,27 +102,67 @@ async function handleGitHubFile(msg) {
 
     const result = await githubResponse.json();
 
-      if (result.success) {
-        let summary = `✅ Processed ${result.itemsProcessed} items for **${result.project}**\n\n`;
-      
-        result.results.forEach((item) => {
-          if (item.success) {
-            if (item.type === "issue") {
-              summary += `📋 Issue #${item.number}: ${item.title}\n`;
-            } else if (item.type === "branch") {
-              summary += `🌿 Branch: \`${item.name}\`\n`;
-            } else if (item.type === "task") {
-              summary += `✓ Task: ${item.title}\n`;
-            }
-          } else {
-            summary += `❌ ${item.type} failed: ${item.error}\n`;
+    if (result.success) {
+      let summary = `✅ GitHub Setup Complete!\n\n`;
+    
+      result.results.forEach((item) => {
+        if (item.success) {
+          if (item.type === "issue") {
+            summary += `📋 Issue #${item.number}: ${item.title}\n`;
+          } else if (item.type === "branch") {
+            summary += `🌿 Branch: \`${item.name}\`\n`;
+          } else if (item.type === "task") {
+            summary += `✓ Task: ${item.title}\n`;
           }
+        } else {
+          summary += `❌ ${item.type} failed: ${item.error}\n`;
+        }
+      });
+    
+      await msg.reply(summary);
+
+      // Step 2: Auto-trigger Architect Agent
+      console.log("🏗️ Auto-triggering Architect Agent...");
+      await msg.reply("🏗️ Architect Agent is designing your system... (this may take a minute)");
+
+      const architectResponse = await fetch(`${ARCHITECT_URL}/design`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(jsonData)
+      });
+
+      const architectResult = await architectResponse.json();
+
+      if (architectResult.success) {
+        let architectSummary = `✅ Architecture Designed!\n\n`;
+        architectSummary += `**Project:** ${architectResult.project}\n`;
+        architectSummary += `**Branch:** \`${architectResult.branch}\`\n\n`;
+        
+        architectSummary += `**📚 Documentation Generated:**\n`;
+        architectResult.documentation.forEach((doc) => {
+          architectSummary += `  📄 ${doc}\n`;
         });
-      
-        msg.reply(summary);
+        
+        architectSummary += `\n**🤖 Agent Tasks Created:**\n`;
+        architectResult.agentTasks.forEach((task) => {
+          architectSummary += `  ✓ ${task}\n`;
+        });
+        
+        architectSummary += `\n**Tech Stack:**\n`;
+        architectSummary += `  Frontend: ${architectResult.architecture.system_layers.frontend}\n`;
+        architectSummary += `  Backend: ${architectResult.architecture.system_layers.backend}\n`;
+        architectSummary += `  Database: ${architectResult.architecture.system_layers.database}\n`;
+        
+        architectSummary += `\n**Next Step:** ${architectResult.nextStep}`;
+        
+        await msg.reply(architectSummary);
       } else {
-        msg.reply(`Error: ${result.error}`);
+        await msg.reply(`❌ Architect Error: ${architectResult.error}`);
       }
+
+    } else {
+      msg.reply(`Error: ${result.error}`);
+    }
 
   } catch (error) {
     console.error(error);
