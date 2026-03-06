@@ -70,25 +70,32 @@ Mr. Yang:`;
 async function handleGitHubFile(msg) {
   try {
     const attachment = msg.attachments.first();
-
     if (!attachment) {
-      return msg.reply("Please attach a JSON file");
+      return msg.reply("Attach a JSON file with the command.");
     }
 
     if (!attachment.name.endsWith(".json")) {
-      return msg.reply("Please upload a JSON file");
+      return msg.reply("File must be a .json file.");
     }
 
-    // Download the file
+    // Download file as text (safer than .json())
     const response = await fetch(attachment.url);
-    const jsonData = await response.json();
+    const text = await response.text();
+
+    let jsonData;
+
+    try {
+      jsonData = JSON.parse(text);
+    } catch (err) {
+      return msg.reply("Invalid JSON format.");
+    }
 
     // Validate structure
-    if (!jsonData.project || !jsonData.items) {
+    if (!jsonData.project || !Array.isArray(jsonData.items)) {
       return msg.reply("Invalid format. Expected { project: string, items: array }");
     }
 
-    // Send to GitHub tool service
+    // Send to your backend
     const githubResponse = await fetch(`${GITHUB_TOOL_URL}/process-github`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -96,32 +103,32 @@ async function handleGitHubFile(msg) {
     });
 
     const result = await githubResponse.json();
-
-    if (result.success) {
-      // Format results nicely
-      let summary = `✅ Processed ${result.itemsProcessed} items for **${result.project}**\n\n`;
-
-      result.results.forEach((item) => {
-        if (item.success) {
-          if (item.type === "issue") {
-            summary += `📋 Issue #${item.number}: ${item.title}\n`;
-          } else if (item.type === "branch") {
-            summary += `🌿 Branch: \`${item.name}\`\n`;
-          } else if (item.type === "task") {
-            summary += `✓ Task: ${item.title}\n`;
+    
+      if (result.success) {
+        let summary = `✅ Processed ${result.itemsProcessed} items for **${result.project}**\n\n`;
+      
+        result.results.forEach((item) => {
+          if (item.success) {
+            if (item.type === "issue") {
+              summary += `📋 Issue #${item.number}: ${item.title}\n`;
+            } else if (item.type === "branch") {
+              summary += `🌿 Branch: \`${item.name}\`\n`;
+            } else if (item.type === "task") {
+              summary += `✓ Task: ${item.title}\n`;
+            }
+          } else {
+            summary += `❌ ${item.type} failed: ${item.error}\n`;
           }
-        } else {
-          summary += `❌ ${item.type.toUpperCase()} failed: ${item.error}\n`;
-        }
-      });
+        });
+      
+        msg.reply(summary);
+      } else {
+        msg.reply(`Error: ${result.error}`);
+      }
 
-      msg.reply(summary);
-    } else {
-      msg.reply(`Error: ${result.error}`);
-    }
   } catch (error) {
-    msg.reply("Error processing file");
-    console.error("GitHub tool error:", error.message);
+    console.error(error);
+    msg.reply("File processing failed.");
   }
 }
 
