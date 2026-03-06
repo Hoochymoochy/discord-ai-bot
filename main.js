@@ -71,25 +71,20 @@ async function handleGitHubFile(msg) {
   try {
     const attachment = msg.attachments.first();
     if (!attachment) {
-      return msg.reply("Attach a JSON file with the command.");
+      return msg.reply("Attach a file with the command.");
     }
 
-    if (!attachment.name.endsWith(".json")) {
-      return msg.reply("File must be a .json file.");
-    }
-
-    // Download file as text (safer than .json())
+    // Download and parse (don't check filename)
     const response = await fetch(attachment.url);
     const text = await response.text();
-
+    
     let jsonData;
-
     try {
       jsonData = JSON.parse(text);
     } catch (err) {
-      return msg.reply("Invalid JSON format.");
+      return msg.reply("Invalid JSON format in file.");
     }
-
+    
     // Validate structure
     if (!jsonData.project || !Array.isArray(jsonData.items)) {
       return msg.reply("Invalid format. Expected { project: string, items: array }");
@@ -103,7 +98,7 @@ async function handleGitHubFile(msg) {
     });
 
     const result = await githubResponse.json();
-    
+
       if (result.success) {
         let summary = `✅ Processed ${result.itemsProcessed} items for **${result.project}**\n\n`;
       
